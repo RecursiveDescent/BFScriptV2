@@ -1,0 +1,11 @@
+int i = 'C'
+
+int stop = read
+
+print i
+
+while i >= 65 {
+	i = i - 1
+	
+	print i
+}
