@@ -148,7 +148,7 @@ fn dist_test() {
 
 	println!("{} {}", str + &dst.compile(&mut gen), gen.cell);
 
-	// dst.simulate(&mut gen);
+	dst.simulate(&mut gen);
 
 	assert_eq!(gen.cell, 5);
 }
