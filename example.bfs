@@ -1,0 +1,28 @@
+int i = read
+
+int forwards = read
+
+int end = read
+
+if forwards == '>' {
+	while i <= end {
+		print i
+
+		i = i + 1
+	}
+}
+
+if forwards == '<' {
+
+	int tmp = i
+
+	i = end
+
+	end = tmp
+	
+	while i >= end {
+		print i
+
+		i = i - 1
+	}
+}
