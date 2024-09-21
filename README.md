@@ -28,9 +28,8 @@ Currently very limited
 - [x] >=
 - [x] <=
 - [x] =
-- [ ] ==
+- [x] ==
 - [x] !=
-- [ ] ...
 
 # Example
 

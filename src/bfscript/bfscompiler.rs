@@ -114,9 +114,17 @@ impl<'a> Compiler<'a> {
 
 					let right = self.compile_expression(branch, *expr.right.unwrap());
 
-					let dst = Distance::new(left, right);
+					let sub = Sub::new(left, right);
 
-					panic!("Not implemented!");
+					let negate = BoolNegate::new(sub.a, self.gen.memory.alloc(1));
+
+					let result = negate.a;
+
+					branch.add(sub);
+
+					branch.add(negate);
+
+					return result;
 				},
 
 				TokenType::NotEqual => {
@@ -124,24 +132,18 @@ impl<'a> Compiler<'a> {
 
 					let right = self.compile_expression(branch, *expr.right.unwrap());
 
-					let mut dst = Distance::new(left, right);
+					let sub = Sub::new(left, right);
 
 					// self.output += &dst.compile(&mut self.gen);
 
 					// dst.simulate(&mut self.gen);
-
-					// Sum cells so condition will be true if there is any difference
-					let sum = Add::new(dst.gt(&mut self.gen), dst.lt(&mut self.gen));
-
 					/*self.output += &sum.compile(&mut self.gen);
 
 					sum.simulate(&mut self.gen);*/
 
-					let result = sum.a;
+					let result = sub.a;
 
-					branch.add(dst);
-
-					branch.add(sum);
+					branch.add(sub);
 
 					return result;
 				}
@@ -156,6 +158,7 @@ impl<'a> Compiler<'a> {
 					// Result
 					let gt = dst.gt(&mut self.gen);
 
+					// This might not be a good long term solution, consider using BoolNegate if this fails
 					if expr.operator.unwrap().kind != TokenType::GTEqual {
 						// Hack because it acts like >= otherwise for some reason
 						let tmp = self.gen.memory.alloc(1);
@@ -163,14 +166,30 @@ impl<'a> Compiler<'a> {
 						branch.add(Set::new(tmp, 1));
 	
 						branch.add(Sub::new(left, tmp));
+
+						branch.add(dst);
+
+						return gt;
 					}
+					
+					let lt = dst.lt(&mut self.gen);
+
+					// If not greater, make the cell a 1 and add it to the result so the condition is true if equal
+					let negate = BoolNegate::new(lt, self.gen.memory.alloc(1));
+
+					let na = negate.a;
 
 					branch.add(dst);
+
+					branch.add(negate);
+
+					// Add other distance to test if equal
+					branch.add(Add::new(gt, na));
 
 					return gt;
 				}
 
-				TokenType::LT => {
+				TokenType::LT | TokenType::LTEqual => {
 					let left = self.compile_expression(branch, *expr.left.unwrap());
 
 					let right = self.compile_expression(branch, *expr.right.unwrap());
@@ -180,16 +199,33 @@ impl<'a> Compiler<'a> {
 					// Result
 					let lt = dst.lt(&mut self.gen);
 
-					if expr.operator.unwrap().kind != TokenType::GTEqual {
+					// This might not be a good long term solution, consider using BoolNegate if this fails
+					if expr.operator.unwrap().kind != TokenType::LTEqual {
 						// Hack because it acts like <= otherwise for some reason
 						let tmp = self.gen.memory.alloc(1);
 	
 						branch.add(Set::new(tmp, 1));
 	
 						branch.add(Sub::new(right, tmp));
+
+						branch.add(dst);
+
+						return lt;
 					}
+				
+					let gt = dst.gt(&mut self.gen);
+
+					// If not greater, make the cell a 1 and add it to the result so the condition is true if equal
+					let negate = BoolNegate::new(gt, self.gen.memory.alloc(1));
+
+					let na = negate.a;
 
 					branch.add(dst);
+
+					branch.add(negate);
+
+					// Add other distance to test if equal
+					branch.add(Add::new(lt, na));	
 
 					return lt;
 				}

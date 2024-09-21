@@ -16,5 +16,13 @@ fn main() {
 
 	let mut compiler = Compiler::new(&contents);
 
-	println!("{}", compiler.compile());
+	let output = compiler.compile();
+
+	// Write to output.bf
+
+	let mut file = File::create("output.bf").unwrap();
+
+	file.write_all(output.as_bytes()).unwrap();
+
+	println!("{}", output);
 }

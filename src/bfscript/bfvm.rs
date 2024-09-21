@@ -109,7 +109,7 @@ impl Instruction for Goto {
 			}
 		}
 
-		//builder.nl();
+		// builder.nl();
 
 		return builder.data;
 	}
@@ -241,6 +241,20 @@ impl Sub {
 impl Instruction for Sub {
 	fn simulate(&mut self, owner: &mut Generator) {
 		owner.cell = self.b;
+
+		if owner.memory.is_dirty(self.a) {
+			owner.memory.set(self.b, 0);
+			
+			return;
+		}
+
+		if owner.memory.is_dirty(self.b) {
+			owner.memory.dirty(self.a);
+			
+			owner.memory.set(self.b, 0);
+			
+			return;
+		}
 
 		let left: CellSize = owner.memory.get(self.a).into();
 
@@ -395,28 +409,43 @@ impl Instruction for BoolNegate {
 		});
 	}
 
+	/*
+	temp0[-]+
+x[[-]temp0-x]temp0[-x+temp0] */
 	fn compile(&mut self, owner: &mut Generator) -> String {
 		let mut builder = BFBuilder::new(owner.indent);
 
-		// builder.instruction(owner, &mut Clear::new(self.a));
+		builder.instruction(owner, &mut Goto::new(self.tmp)).simulate(owner);
 
-		// builder.instruction(owner, &mut Clear::new(self.tmp));
+		builder.string("[-]+\n");
 
-		builder.instruction(owner, &mut Move::new(self.tmp, self.a));
+		builder.instruction(owner, &mut Goto::new(self.a)).simulate(owner);
 
-		// builder.instruction(owner, &mut Goto::new(self.b)).simulate(owner);
+		let mut lp = builder.bfloop(false);
 
-		builder.instruction(owner, &mut Set::new(self.a, 1));
+		lp.string("[-]");
+
+		lp.instruction(owner, &mut Goto::new(self.tmp)).simulate(owner);
+
+		lp.string("-");
+
+		lp.instruction(owner, &mut Goto::new(self.a)).simulate(owner);
+
+		builder.string(&lp.end().data);
 
 		builder.instruction(owner, &mut Goto::new(self.tmp)).simulate(owner);
 
-		let mut lp = builder.bfloop(false);
-		
-		lp.instruction(owner, &mut Goto::new(self.a)).simulate(owner);
-		
-		builder.instruction(owner, &mut Clear::new(self.a));
+		let mut lp2 = builder.bfloop(false);
 
-		builder.string(&lp.end().data);
+		lp2.string("-");
+
+		lp2.instruction(owner, &mut Goto::new(self.a)).simulate(owner);
+
+		lp2.string("+");
+
+		lp2.instruction(owner, &mut Goto::new(self.tmp)).simulate(owner);
+
+		builder.string(&lp2.end().data);
 
 		builder.instruction(owner, &mut Goto::new(self.a)).simulate(owner);
 

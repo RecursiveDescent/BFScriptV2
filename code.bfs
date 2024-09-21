@@ -1,11 +1,28 @@
-int i = 'C'
+int i = read
 
-int stop = read
+int forwards = read
 
-print i
+int end = read
 
-while i >= 65 {
-	i = i - 1
+if forwards == '>' {
+	while i <= end {
+		print i
+
+		i = i + 1
+	}
+}
+
+if forwards == '<' {
+
+	int tmp = i
+
+	i = end
+
+	end = tmp
 	
-	print i
+	while i >= end {
+		print i
+
+		i = i - 1
+	}
 }
