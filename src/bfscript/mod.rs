@@ -8,6 +8,8 @@ mod bfsparser;
 
 mod bfscompiler;
 
+mod bfextensions;
+
 type CellSize = u32;
 
 pub use bfintrp::*;
