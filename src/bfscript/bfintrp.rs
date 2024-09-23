@@ -92,12 +92,14 @@ impl<'a> Interpreter<'a> {
 
 		if self.source[self.position] == b'.' {
 			print!("{}", self.cells[self.pointer as usize] as char);
+
+			std::io::stdout().flush().unwrap();
 		}
 
 		if self.source[self.position] == b'[' {
 			self.level += 1;
 
-			self.stack.push(self.position - 1);
+			self.stack.push(self.position.saturating_sub(1));
 			
 			if ! self.skipping && self.cells[self.pointer as usize] == 0 {
 				self.skipping = true;
@@ -135,6 +137,13 @@ impl<'a> Interpreter<'a> {
 		}
 
 		if self.source[self.position] == b'@' {
+			// This can't error, because it would be a normal comment in normal brainfuck
+			if ! self.extended_mode {
+				println!("Extended mode is not enabled!");
+
+				return;
+			}
+
 			let op = self.cells[self.pointer as usize];
 
 			let pos = self.position;

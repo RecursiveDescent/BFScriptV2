@@ -53,6 +53,8 @@ fn main() {
 
 	let mut interpret = false;
 
+	let mut analyze = false;
+
     // Example flag processing - you'll need to define your own flags
     for arg in args.iter().skip(1) {
         if arg == "-e" || arg == "--extended" {
@@ -62,6 +64,14 @@ fn main() {
 		if arg == "-i" || arg == "--interpret" {
 			interpret = true;
         }
+
+		if arg == "-a" || arg == "--analyze" {
+			analyze = true;
+		}
+
+		if arg == "--debug" {
+			*bfscript::DEBUG.lock().unwrap() = true;
+		}
 
 		if arg == "-h" || arg == "--help" {
 			println!("[BFScript]");
@@ -110,6 +120,22 @@ fn main() {
 
     let mut contents: Vec<u8> = Vec::new();
     file.read_to_end(&mut contents).unwrap();
+
+	if analyze {
+		let mut analyzer = Analyzer::new(&contents);
+
+		analyzer.analyze();
+
+		println!("Analyzed file: {}", input_file);
+
+		println!("\nVariables:\n");
+
+		for v in analyzer.scope.variables {
+			println!("{}: {:?}\n", v.name, v.value);
+		}
+
+		return;
+	}
 
 	let mut compiler = Compiler::new(&contents);
 

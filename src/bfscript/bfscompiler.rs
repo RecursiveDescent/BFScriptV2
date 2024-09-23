@@ -79,7 +79,6 @@ impl Scope {
 		return child;
 	}
 }
-		
 
 pub struct Compiler<'a> {
 	pub gen: Generator,
@@ -88,7 +87,11 @@ pub struct Compiler<'a> {
 
 	pub parser: Parser<'a>,
 
-	pub output: String
+	pub output: String,
+
+	pub analyzer: Analyzer<'a>,
+
+	pub last_return: ValueInfo
 }
 
 impl<'a> Compiler<'a> {
@@ -100,7 +103,11 @@ impl<'a> Compiler<'a> {
 
 			parser: Parser::new(Tokenizer::new(source)),
 
-			output: String::new()
+			output: String::new(),
+
+			analyzer: Analyzer::new(source),
+
+			last_return: ValueInfo::default()
 		};
 	}
 
@@ -323,6 +330,26 @@ impl<'a> Compiler<'a> {
 				return loc;
 			}
 
+			if expr.value.as_ref().unwrap().kind == TokenType::String {
+				let value = expr.value.as_ref().unwrap().string.clone();
+
+				let loc = self.gen.memory.alloc(value.len() + 1);
+
+				Debug::log(&format!("String literal parsed: ({})", expr.value.as_ref().unwrap().string));
+
+				for (i, c) in value.chars().enumerate() {
+					let set = Set::new(loc + i, c as CellSize);
+
+					branch.add(set);
+				}
+
+				let set = Set::new(loc + value.len(), 0);
+
+				branch.add(set);
+
+				return loc;
+			}
+
 			if expr.value.as_ref().unwrap().kind == TokenType::Char {
 				let loc = self.gen.memory.alloc(1);
 
@@ -342,16 +369,6 @@ impl<'a> Compiler<'a> {
 			if expr.value.as_ref().unwrap().kind == TokenType::Identifier {
 				let token = expr.value.as_ref().unwrap();
 
-				if token.string == "read" {
-					let cell = self.gen.memory.alloc(1);
-					
-					let input = Input::new(cell);
-
-					branch.add(input);
-
-					return cell;
-				}
-
 				let var = self.scope.get(&token.string);
 
 				if var.is_none() {
@@ -364,17 +381,169 @@ impl<'a> Compiler<'a> {
 				
 				self.scope.define(&updated);*/
 
-				let cell = self.gen.memory.alloc(1);
+				let info = self.analyzer.scope.get(&token.string).unwrap().value.clone();
+
+				let cell = self.gen.memory.alloc(info.size);
 
 				let tmp = self.gen.memory.alloc(1);
 
-				let copy = Copy::new(cell, tmp, var.unwrap().cell);
+				for i in 0..info.size {
+					let copy = Copy::new(cell + i, tmp, var.unwrap().cell + i);
 
-				branch.add(copy);
+					branch.add(copy);
+				}
 
 				self.gen.memory.free(tmp);
 
 				return cell;
+			}
+		}
+
+		if expr.kind == ExpressionType::Call {
+			if expr.target.as_ref().unwrap().string == "print" {
+				let arg = self.compile_expression(branch, expr.args.as_ref().unwrap().get(0).unwrap().clone());
+
+				let info = self.analyzer.analyze_expr(expr.args.as_ref().unwrap().get(0).unwrap().clone());
+
+				for i in 0..info.size {
+					let output = Output::new(arg + i);
+				
+					branch.add(output);
+				}
+
+				self.last_return = ValueInfo::new("void".to_string(), 0);
+
+				return arg;
+			}
+
+			if expr.target.as_ref().unwrap().string == "read" {
+				assert!(expr.args.as_ref().unwrap().get(0).unwrap().value.as_ref().unwrap().kind == TokenType::Number, "Argument to read() must be a constant");
+				
+				let amount = expr.args.as_ref().unwrap().get(0).unwrap().value.as_ref().unwrap().number;
+
+				let cell = self.gen.memory.alloc(amount as usize + 1);
+				
+				for i in 0..amount {
+					let input = Input::new(cell + i as usize);
+
+					branch.add(input);
+				}
+
+				let set = Set::new(cell + amount as usize, 0);
+
+				branch.add(set);
+
+				self.last_return = ValueInfo::new("string".to_string(), amount as usize);
+
+				return cell;
+			}
+
+			if expr.target.as_ref().unwrap().string == "open" {
+				let expr = expr.args.as_ref().unwrap().get(0).unwrap();
+
+				let arg = self.compile_expression(branch, expr.clone());
+
+				let len = match expr.kind {
+					ExpressionType::Literal => {
+						match expr.value.as_ref().unwrap().kind {
+							TokenType::String => {
+								expr.value.as_ref().unwrap().string.len()
+							},
+
+							TokenType::Identifier => {
+								self.analyzer.scope.get(&expr.value.as_ref().unwrap().string).unwrap_or_else(|| { panic!("Undefined variable {}", expr.value.as_ref().unwrap().string) }).value.size
+							}
+
+							_ => 1
+						}
+					},
+
+					ExpressionType::Call => {
+						self.last_return.size
+					}
+
+					_ => {
+						1
+					}
+				};
+
+				let op = self.gen.memory.alloc(len + 1);
+
+				branch.add(Set::new(op, ExtendedBF::OpenFile as CellSize));
+
+				let tmp = self.gen.memory.alloc(1);
+
+				for i in 0..len {
+					branch.add(Copy::new(op + i + 1, tmp, arg + i));
+				}
+
+				let open = Command::new(op);
+
+				branch.add(open);
+
+				self.last_return = ValueInfo::new("int".to_string(), 1);
+
+				return op;
+			}
+
+			if expr.target.as_ref().unwrap().string == "write" {
+				let argexpr = expr.args.as_ref().unwrap().get(1).unwrap();
+
+				let data = self.compile_expression(branch, argexpr.clone());
+
+				let len = match argexpr.kind {
+					ExpressionType::Literal => {
+						match argexpr.value.as_ref().unwrap().kind {
+							TokenType::String => {
+								argexpr.value.as_ref().unwrap().string.len() + 1
+							},
+
+							TokenType::Identifier => {
+								self.analyzer.scope.get(&argexpr.value.as_ref().unwrap().string).unwrap_or_else(|| { panic!("Undefined variable {}", argexpr.value.as_ref().unwrap().string) }).value.size
+							},
+
+							_ => 1
+						}
+					},
+
+					ExpressionType::Call => {
+						self.last_return.size
+					}
+
+					_ => {
+						Debug::log(&format!("Unknown data type: {:?}", argexpr.kind));
+
+						1
+					}
+				};
+
+				if len == 0 {
+					panic!("Empty argument passed to write");
+				}
+
+				let op = self.gen.memory.alloc(len + 2);
+
+				branch.add(Set::new(op, ExtendedBF::Write as CellSize));
+
+				let handle = self.compile_expression(branch, expr.args.as_ref().unwrap().get(0).unwrap().clone());
+
+				let tmp = self.gen.memory.alloc(1);
+
+				branch.add(Copy::new(op + 1, tmp, handle));
+
+				for i in 0..len + 1 {
+					let tmp = self.gen.memory.alloc(1);
+
+					branch.add(Copy::new(op + i + 2, tmp, data + i));
+				}
+
+				let write = Command::new(op);
+
+				branch.add(write);
+
+				self.last_return = ValueInfo::new("int".to_string(), 1);
+
+				return op;
 			}
 		}
 
@@ -455,16 +624,12 @@ impl<'a> Compiler<'a> {
 
 			return;
 		}
-
-		if stmt.kind == StatementType::Print {
-			let output = Output::new(self.compile_expression(branch, stmt.expression.clone().unwrap()));
-			
-			branch.add(output);
-		}
 	}
 
 	pub fn compile(&mut self) -> String {
 		// let mut str = String::new();
+
+		self.analyzer.analyze();
 
 		let mut branch = BFBlock::new();
 

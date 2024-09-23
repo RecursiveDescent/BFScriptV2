@@ -1,0 +1,13 @@
+int handle = open(read(5))
+
+string s = "Files work"
+
+int status = write(handle, s)
+
+if status == 1 {
+    print("Success!")
+}
+
+if status == 0 {
+    print("Failure!")
+}

@@ -4,14 +4,16 @@ use super::Tokenizer;
 use super::Token;
 use super::TokenType;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum ExpressionType {
+	#[default]
 	Binary,
 	Unary,
 	Literal,
+	Call,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Expression {
 	pub kind: ExpressionType,
 
@@ -21,17 +23,18 @@ pub struct Expression {
 	
 	pub right: Option<Box<Expression>>,
 
-	pub value: Option<Token>
+	pub value: Option<Token>,
+
+	pub target: Option<Token>,
+
+	pub args: Option<Vec<Expression>>
 }
 
 impl Expression {
 	pub fn new(kind: ExpressionType) -> Expression {
 		return Expression {
 			kind,
-			left: None,
-			operator: None,
-			right: None,
-			value: None
+			..Default::default()
 		};
 	}
 
@@ -41,17 +44,24 @@ impl Expression {
 			left: Some(Box::new(left)),
 			operator: Some(operator),
 			right: Some(Box::new(right)),
-			value: None
+			..Default::default()
 		};
 	}
 
 	pub fn new_literal(value: Token) -> Expression {
 		return Expression {
 			kind: ExpressionType::Literal,
-			left: None,
-			operator: None,
-			right: None,
-			value: Some(value)
+			value: Some(value),
+			..Default::default()
+		};
+	}
+
+	pub fn new_call(target: Token, args: Vec<Expression>) -> Expression {
+		return Expression {
+			kind: ExpressionType::Call,
+			target: Some(target),
+			args: Some(args),
+			..Default::default()
 		};
 	}
 
@@ -83,6 +93,22 @@ impl Expression {
 				return str;
 			},
 
+			ExpressionType::Call => {
+				str += &self.target.as_ref().unwrap().string;
+
+				str += "(";
+
+				for arg in self.args.as_ref().unwrap() {
+					str += &arg.stringify();
+
+					str += ",";
+				}
+
+				str += ")";
+
+				return str;
+			},
+
 			_ => {
 				return str;
 			}
@@ -97,8 +123,7 @@ pub enum StatementType {
 	VarDecl,
 	Assignment,
 	Return,
-	Expression,
-	Print
+	Expression
 }
 
 #[derive(Debug, Clone)]
@@ -175,18 +200,6 @@ impl<'a> Parser<'a> {
 			stmt.name = Some(varname);
 
 			stmt.expression = Some(varvalue);
-
-			return stmt;
-		}
-
-		if token.string == "print" {
-			self.tokenizer.next();
-
-			let expr = self.expression();
-
-			let mut stmt = Statement::new(StatementType::Print);
-
-			stmt.expression = Some(expr);
 
 			return stmt;
 		}
@@ -320,11 +333,70 @@ impl<'a> Parser<'a> {
 		return left;
 	}
 
+	/*pub fn call(&mut self) -> Expression {
+		let mut left = self.primary();
+
+		while self.tokenizer.peek_token().kind == TokenType::LParen {
+			self.tokenizer.next();
+
+			if self.tokenizer.peek_token().kind == TokenType::RParen {
+				self.tokenizer.next();
+
+				left = Expression::new_call(left, Vec::new());
+
+				continue;
+			}
+
+			let mut args = Vec::new();
+
+			while self.tokenizer.peek_token().kind != TokenType::RParen {
+				args.push(self.expression());
+
+				if self.tokenizer.peek_token().kind == TokenType::Comma {
+					self.tokenizer.next();
+				}
+				else if self.tokenizer.peek_token().kind != TokenType::RParen {
+					panic!("Expected , or )");
+				}
+			}
+
+			self.tokenizer.next();
+
+			left = Expression::new_call(left, args);
+		}
+
+		return left;
+			
+	}*/
+
 	pub fn primary(&mut self) -> Expression {
 		let token = self.tokenizer.next();
 
 		if self.tokenizer.peek_token().kind == TokenType::LParen {
-			
+			self.tokenizer.next();
+
+			if self.tokenizer.peek_token().kind == TokenType::RParen {
+				self.tokenizer.next();
+
+				return Expression::new_call(token, Vec::new());
+			}
+
+			let mut args = Vec::new();
+
+			while self.tokenizer.peek_token().kind != TokenType::RParen {
+				args.push(self.expression());
+
+				if self.tokenizer.peek_token().kind == TokenType::Comma {
+					self.tokenizer.next();
+				}
+				else if self.tokenizer.peek_token().kind != TokenType::RParen {
+					panic!("Expected , or )");
+				}
+			}
+
+			self.tokenizer.next();
+				
+			return Expression::new_call(token, args);
 		}
 
 		return Expression::new_literal(token);

@@ -26,6 +26,8 @@ pub enum TokenType {
 	CompoundDiv,
 	CompoundMod,
 
+	Comma,
+
 	Not,
 	NotEqual,
 
@@ -197,6 +199,14 @@ impl<'a> Tokenizer<'a> {
 		}
 
 		let c = self.get().unwrap();
+
+		if c == '/' && self.peek().unwrap() == '/' {
+			while self.peek().unwrap() != '\n' {
+				self.get();
+			}
+
+			return self.next();
+		}
 
 		match c {
 			'"' => {
@@ -377,6 +387,12 @@ impl<'a> Tokenizer<'a> {
 				self.get();
 				
 				return Token::operator(TokenType::RBrace, "}", self.line, self.column);
+			},
+
+			',' => {
+				self.get();
+				
+				return Token::operator(TokenType::Comma, ",", self.line, self.column);
 			},
 
 			_ => {}

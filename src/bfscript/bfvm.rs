@@ -1130,6 +1130,36 @@ impl Instruction for Output {
 	}
 }
 
+pub struct Command {
+	pub cell: usize
+}
+
+impl Command {
+	pub fn new(cell: usize) -> Command {
+		return Command { cell };
+	}
+}
+
+impl Instruction for Command {
+	fn simulate(&mut self, owner: &mut Generator) {
+		owner.cell = self.cell;
+
+		owner.memory.dirty(self.cell);
+	}
+
+	fn compile(&mut self, owner: &mut Generator) -> String {
+		let mut builder = BFBuilder::new(owner.indent);
+
+		builder.instruction(owner, &mut Goto::new(self.cell)).simulate(owner);
+
+		builder.string(&"@");
+
+		builder.nl();
+
+		return builder.data;
+	}
+}
+
 pub trait Instruction {
 	fn simulate(&mut self, owner: &mut Generator);
 
@@ -1202,7 +1232,7 @@ impl MemoryPool {
 	}
 
 	pub fn get(&self, cell: usize) -> CellSize {
-		if cell > self.cells.len() {
+		if cell >= self.cells.len() {
 			panic!("Invalid cell! At {}", cell);
 		}
 

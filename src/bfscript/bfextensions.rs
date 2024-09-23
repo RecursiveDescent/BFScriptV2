@@ -1,5 +1,6 @@
 #![allow(dead_code, unused_imports)]
 
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -30,6 +31,8 @@ pub fn bf_open_file(state: &mut Interpreter) {
 pub fn bf_write(state: &mut Interpreter) {
     let index = state.cells[state.pointer as usize + 1];
 
+    let data = &state.read_string(state.pointer as usize + 2, 255);
+
     let mut file: &File = match state.files.get(index as usize) {
         Some(file) => file,
         
@@ -39,7 +42,7 @@ pub fn bf_write(state: &mut Interpreter) {
     };
 
     // write single byte
-    match file.write(&[state.cells[state.pointer as usize + 2]]) {
+    match file.write(data.as_bytes()) {
         Ok(_) => {
             state.cells[state.pointer as usize] = 1;
         },

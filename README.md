@@ -6,7 +6,7 @@ Semicolons will break the code since the parser doesn't handle them yet.
 
 Currently very limited
 
-*Use `print` to output expressions and currently `read` is a constant which returns a single character from the input*
+*Use `print()` to output expressions and input with read(N), where N is how many characters to read from input and must be a constant*
 
 # Features
 
@@ -31,29 +31,25 @@ Currently very limited
 - [x] ==
 - [x] !=
 
+# Usage
+
+You can use this as a compiler or an interpreter depending on the flags you run it with.
+If running straight from cargo: `cargo run [input_file] -o [output_file] --interpret`
+
+To view the help message: `cargo run -- --help` or `cargo run -- -h`, otherwise the flag will be handled by cargo instead of the program.
+
 # Example
 
-The following will output the alphabet up to the letter in the input.
-
-(Will loop forever or until it wraps if you dont provide an input in bounds of the uppercase alphabet)
-
-```
-int i = 'A'
-
-int stop = read
-
-print i
-
-while i != stop {
-	i = i + 1
-	
-	print i
-}
-```
-
-The extra example inside `example.bfs` demonstrates a more complicated script, which takes an input of three characters and outputs a sequence from the first to the third character in a direction.
+The example given by `example.bfs` takes an input of three characters and outputs a sequence from the first to the third character in a given direction.
 For example `A>Z` would output the uppercase alphabet from A-Z and `Z<A` would output the alphabet in reverse.
 
+The second example `extended_example.bfs` showcases the extension of brainfuck
+
+# Brainfuck Extension
+
+By passing `-e` or `--extended` you can enable an extended superset of brainfuck, which can interface with native code using just a single added instruction.
+
+There are currently builtin interfaces for opening and writing to files.
 
 # Technical Information
 
